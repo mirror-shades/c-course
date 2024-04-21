@@ -20,11 +20,43 @@ std::vector<std::string> tokenize(std::string csvLine, char separator)
     return tokens;
 }
 
+void calculateValueToday(std::vector<double> cpiData)
+{
+    double price = 1;
+    for (double &c : cpiData)
+    {
+        price = price * (1 + c / 100);
+    }
+    std::cout << "Value of $1 from 1960 in 2022: $" << price << std::endl;
+    std::cout << "A 5.00 fast food meal would have been " << 5 / price << std::endl;
+    std::cout << "A 25,000 dollar car would have been " << 25000 / price << std::endl;
+    std::cout << "A 500,000 dollar house would have been " << 500000 / price << std::endl;
+}
+
+std::vector<double> readCPIData(std::vector<std::string> tokens)
+{
+    std::vector<double> cpiData;
+    int nonce = 0;
+    int year = 1960;
+    for (std::string &t : tokens)
+    {
+        if (nonce >= 5)
+        {
+            std::cout << year << ": " << t << std::endl;
+            cpiData.push_back(std::stod(t));
+            year++;
+        }
+        nonce++;
+    }
+    return cpiData;
+}
+
 int main()
 {
     std::ifstream csvFile{"cpi.csv"};
     std::string line;
     std::vector<std::string> tokens;
+    std::vector<double> cpiData;
     if (csvFile.is_open())
     {
         std::cout << "CSV file opened successfully" << std::endl;
@@ -33,11 +65,9 @@ int main()
             tokens = tokenize(line, ',');
             if (tokens[0] == "United States")
             {
-                std::cout << "us found" << std::endl;
-                for (std::string &t : tokens)
-                {
-                    std::cout << t << " ";
-                }
+                cpiData = readCPIData(tokens);
+                std::cout << "==============" << std::endl;
+                calculateValueToday(cpiData);
             }
         }
         csvFile.close();

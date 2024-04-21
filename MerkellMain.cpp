@@ -5,7 +5,8 @@
 #include <vector>
 
 std::vector<OrderBookEntry> entries;
-{x = 10} MerkellMain::MerkellMain()
+
+MerkellMain::MerkellMain()
 {
 }
 
