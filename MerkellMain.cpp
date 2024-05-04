@@ -1,10 +1,9 @@
 #include "MerkellMain.h"
 #include "OrderBookEntry.h"
+#include "CSVReader.h"
 #include <iostream>
 #include <limits>
 #include <vector>
-
-std::vector<OrderBookEntry> entries;
 
 MerkellMain::MerkellMain()
 {
@@ -12,9 +11,10 @@ MerkellMain::MerkellMain()
 
 int MerkellMain::init()
 {
+    currentTime = orderBook.getEarliestTime();
+    wallet.insertCurrency("BTC", 10);
     while (true)
     {
-        makeTestBook();
         showOptions();
         int option = getSelection();
         handleSelection(option);
@@ -25,33 +25,19 @@ int MerkellMain::init()
     }
 }
 
-void MerkellMain::makeTestBook()
-{
-    OrderBookEntry obe1("2020/03/17 17:02:30.884493", "ETH/BTC", OrderBookType::ask, 0.02314308, 0.44564869);
-    OrderBookEntry obe2("2020/03/17 17:02:30.884493", "ETH/BTC", OrderBookType::ask, 0.02284637, 0.15);
-    OrderBookEntry obe3("2020/03/17 17:02:30.884493", "ETH/BTC", OrderBookType::ask, 0.02248988, 2.665);
-    OrderBookEntry obe4("2020/03/17 17:01:24.884492", "ETH/BTC", OrderBookType::bid, 0.02126299, 0.1);
-    OrderBookEntry obe5("2020/03/17 17:02:30.884493", "ETH/BTC", OrderBookType::bid, 0.02105731, 1.75);
-    OrderBookEntry obe6("2020/03/17 17:02:30.884493", "ETH/BTC", OrderBookType::bid, 0.02079121, 0.0225);
-    entries.push_back(obe1);
-    entries.push_back(obe2);
-    entries.push_back(obe3);
-    entries.push_back(obe4);
-    entries.push_back(obe5);
-    entries.push_back(obe6);
-}
 void MerkellMain::showOptions()
 {
     std::cout << std::endl
               << "1: Print help " << std::endl
               << "2: Print exchange stats " << std::endl
-              << "3: Make an offer " << std::endl
+              << "3: Make an ask " << std::endl
               << "4: Make a bid " << std::endl
               << "5: Print wallet " << std::endl
               << "6: Continue " << std::endl
               << "7: Exit " << std::endl
               << "==============" << std::endl
-              << "Enter 1-7 " << std::endl;
+              << "Enter 1-7 " << std::endl
+              << "Current time is " << currentTime << std::endl;
 }
 void MerkellMain::invalidEntry()
 {
@@ -67,14 +53,32 @@ void MerkellMain::showHelp()
 void MerkellMain::showMarketStats()
 {
     /**this is where the test are conducted, to simulate checking market data*/
+    std::cout << "Here are the market stats" << std::endl;
     listEntries();
-    computePriceSpread();
-    computeAveragePrice();
 }
 
-void MerkellMain::makeOffer()
+void MerkellMain::makeAsk()
 {
-    std::cout << "You made an offer" << std::endl;
+    std::cout << "Make an ask - enter [product, price, amount]" << std::endl;
+    std::string input;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    std::getline(std::cin, input);
+
+    std::vector<std::string> tokens = CSVReader::tokenize(input, ',');
+    if (tokens.size() != 3)
+    {
+        std::cout << "bad input: " << input << std::endl;
+    }
+    else
+    {
+        OrderBookEntry obe = CSVReader::stringsToOBE(currentTime,
+                                                     tokens[0],
+                                                     OrderBookType::ask,
+                                                     tokens[1],
+                                                     tokens[2]);
+        orderBook.insertOrder(obe);
+    }
+    std::cout << input << std::endl;
 }
 
 void MerkellMain::makeBid()
@@ -84,12 +88,18 @@ void MerkellMain::makeBid()
 
 void MerkellMain::showWallet()
 {
-    std::cout << "You are broke" << std::endl;
+    std::cout << wallet.toString() << std::endl;
 }
 
 void MerkellMain::nextTimeFrame()
 {
     std::cout << "Okay, onto the next time frame" << std::endl;
+    std::vector<OrderBookEntry> sales = orderBook.matchAsksToBids("ETH/BTC", currentTime);
+    for (OrderBookEntry sale : sales)
+    {
+        std::cout << "Sale Made pf ETH/BTC @ " << sale.price << ", " << sale.amount << std::endl;
+    }
+    currentTime = orderBook.getNextTime(currentTime);
 }
 
 void MerkellMain::goodbye()
@@ -115,7 +125,7 @@ void MerkellMain::handleSelection(int option)
     }
     if (option == 3)
     {
-        makeOffer();
+        makeAsk();
     }
     if (option == 4)
     {
@@ -149,59 +159,29 @@ int MerkellMain::getSelection()
     return option;
 }
 
-void MerkellMain::computeAveragePrice()
-{
-    double sum = 0;
-    for (auto &entry : entries)
-    {
-        sum += entry.price;
-    }
-    std::cout << "Average price: " << sum / entries.size() << std::endl;
-}
-double MerkellMain::computeLowPrice()
-{
-    double low = 0;
-    for (auto &entry : entries)
-    {
-        /**to find the lowest price we take the highest bid*/
-        if (entry.price > low && entry.orderType == OrderBookType::bid)
-        {
-            low = entry.price;
-        }
-    }
-    std::cout << "Low price: " << low << std::endl;
-    return (low);
-}
-double MerkellMain::computeHighPrice()
-{
-    double high = std::numeric_limits<double>::max(); // starts at the max value for search purposes
-    for (auto &entry : entries)
-    {
-        /**to find the highest price we take the lowest ask*/
-        if (entry.price < high && entry.orderType == OrderBookType::ask)
-        {
-            high = entry.price;
-        }
-    }
-    std::cout << "High price: " << high << std::endl;
-    return (high);
-}
-void MerkellMain::computePriceSpread()
-{
-    double high = computeHighPrice();
-    double low = computeLowPrice();
-    double spread = high - low;
-    std::cout << "Spread in price: " << spread << std::endl;
-}
+// void MerkellMain::computeAveragePrice()
+// {
+//     double sum = 0;
+//     for (auto &entry : orders)
+//     {
+//         sum += entry.price;
+//     }
+//     std::cout << "Average price: " << sum / orders.size() << std::endl;
+// }
 
 void MerkellMain::listEntries()
 {
-    for (auto &entry : entries)
+    for (std::string const &p : orderBook.getKnownProducts())
     {
-        std::cout << entry.timestamp << ", "
-                  << entry.product << ", "
-                  << (entry.orderType == OrderBookType::bid ? "bid" : "ask") << ", "
-                  << entry.price << ", "
-                  << entry.amount << std::endl;
+        std::vector<OrderBookEntry> entriesA = orderBook.getOrders(OrderBookType::ask, p, currentTime);
+        std::vector<OrderBookEntry> entriesB = orderBook.getOrders(OrderBookType::bid, p, currentTime);
+        double aV = OrderBook::getCurrentVolume(entriesA, currentTime);
+        double bV = OrderBook::getCurrentVolume(entriesB, currentTime);
+        std::cout
+            << "Product: " << p << std::endl;
+        std::cout << "Asks seen: " << entriesA.size() << std::endl;
+        std::cout << "Bids seen: " << entriesB.size() << std::endl;
+        std::cout << "Current Ask: " << OrderBook::getHighPrice(entriesA) << std::endl;
+        std::cout << "Product volume | Asks: " << aV << " Bids: " << bV << std::endl;
     }
 }
