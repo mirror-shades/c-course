@@ -1,6 +1,7 @@
 #include "MerkellMain.h"
 #include "OrderBookEntry.h"
 #include "CSVReader.h"
+#include "Wallet.h"
 #include <iostream>
 #include <limits>
 #include <vector>
@@ -12,7 +13,7 @@ MerkellMain::MerkellMain()
 int MerkellMain::init()
 {
     currentTime = orderBook.getEarliestTime();
-    wallet.insertCurrency("BTC", 10);
+    // wallet.insertCurrency("BTC", 10);
     while (true)
     {
         showOptions();
@@ -76,14 +77,47 @@ void MerkellMain::makeAsk()
                                                      OrderBookType::ask,
                                                      tokens[1],
                                                      tokens[2]);
-        orderBook.insertOrder(obe);
+        if (wallet.canFufillOrder(obe))
+        {
+            orderBook.insertOrder(obe);
+        }
+        else
+        {
+            std::cout << "insufficent funds" << std::endl;
+        }
     }
     std::cout << input << std::endl;
 }
 
 void MerkellMain::makeBid()
 {
-    std::cout << "You made a bid" << std::endl;
+    std::cout << "Make an bid - enter [product, price, amount]" << std::endl;
+    std::string input;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    std::getline(std::cin, input);
+
+    std::vector<std::string> tokens = CSVReader::tokenize(input, ',');
+    if (tokens.size() != 3)
+    {
+        std::cout << "bad input: " << input << std::endl;
+    }
+    else
+    {
+        OrderBookEntry obe = CSVReader::stringsToOBE(currentTime,
+                                                     tokens[0],
+                                                     OrderBookType::bid,
+                                                     tokens[1],
+                                                     tokens[2]);
+        if (wallet.canFufillOrder(obe))
+        {
+            orderBook.insertOrder(obe);
+        }
+        else
+        {
+            std::cout << "insufficent funds" << std::endl;
+        }
+    }
+    std::cout << input << std::endl;
 }
 
 void MerkellMain::showWallet()
